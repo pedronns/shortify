@@ -9,11 +9,13 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.INTEGER
       },
-      originalUrl: {
+      url: {
         type: Sequelize.STRING
       },
-      shortCode: {
-        type: Sequelize.STRING
+      code: {
+        type: Sequelize.STRING(20),
+        allowNull: false,
+        unique: true
       },
       clicks: {
         type: Sequelize.INTEGER
