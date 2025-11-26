@@ -1,8 +1,11 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { createRandomLink, createCustomLink } from "../api/links"
 import "../App.css"
 
+import { isValidUrl, isValidCode, isValidPassword } from "../utils/validators"
+
 import LinkResult from "../components/LinkResult"
+import CodeTaken from "../components/CodeTaken"
 import Button from "react-bootstrap/Button"
 import Form from "react-bootstrap/Form"
 import Row from "react-bootstrap/Row"
@@ -20,32 +23,29 @@ export default function CreateLink() {
     const [mainColor, setMainColor] = useState("#000000")
     const [secondaryColor, setSecondaryColor] = useState("#ffffff")
     const [useCode, setUseCode] = useState(false)
+    const [showQrOptions, setShowQrOptions] = useState(false)
+    const [validated, setValidated] = useState(false)
 
     const inputRef = useRef(null)
 
-    function isValidHttpUrl(string) {
-        try {
-            const testUrl = new URL(string)
-            return testUrl.protocol === "http:" || testUrl.protocol === "https:"
-        } catch (_) {
-            return false
-        }
-    }
+    /* useEffect(() => {
+        if (result) setResult(null)
+    }, [useCode, protectedLink, useQr]) */
 
     async function handleSubmit(e) {
         e.preventDefault()
         setResult(null)
+        setValidated(true)
 
+        // Validation checks
         if (!url.trim()) {
             setResult({ error: "URL é obrigatória" })
             return
         }
-
-        if (!isValidHttpUrl(url)) {
+        if (!isValidUrl(url)) {
             setResult({ error: "URL inválida" })
             return
         }
-
         if (useCode && !code.trim()) {
             setResult({ error: "Digite o código customizado" })
             return
@@ -54,33 +54,33 @@ export default function CreateLink() {
         setLoading(true)
 
         try {
-            let data
-            if (useCode) {
-                data = await createCustomLink({
-                    url,
-                    password: protectedLink ? password : "",
-                    code,
-                })
-            } else {
-                data = await createRandomLink({
-                    url,
-                    password: protectedLink ? password : "",
-                })
-            }
-
-            /* data.mainColor = mainColor
-            data.secondaryColor = secondaryColor */
+            const data = await (useCode
+                ? createCustomLink({
+                      url,
+                      password: protectedLink ? password : "",
+                      code,
+                  })
+                : createRandomLink({
+                      url,
+                      password: protectedLink ? password : "",
+                  }))
 
             setResult({ ...data, mainColor, secondaryColor })
+            // Reset fields
             setUrl("")
             setPassword("")
             setCode("")
-            setProtectedLink(false)
-            setUseCode(false)
+            setShowQrOptions(false)
             inputRef.current.focus()
         } catch (err) {
             console.log("Erro do backend:", err)
-            setResult({ error: err.error || "Erro de conexão com o servidor" })
+            if (err.error === "CODE_TAKEN") {
+                setResult({ error: "Código já utilizado" })
+            } else {
+                setResult({
+                    error: err.error || "Erro de conexão com o servidor",
+                })
+            }
         } finally {
             setLoading(false)
         }
@@ -94,7 +94,7 @@ export default function CreateLink() {
             <h1>Shortify</h1>
             <p>Seu encurtador de links</p>
 
-            <Form onSubmit={handleSubmit}>
+            <Form noValidate onSubmit={handleSubmit}>
                 <Form.Group as={Row} className="mb-3">
                     <Col sm={12}>
                         <Form.Control
@@ -102,10 +102,26 @@ export default function CreateLink() {
                             type="text"
                             placeholder="Insira a URL"
                             value={url}
-                            onChange={(e) => setUrl(e.target.value)}
+                            onChange={(e) => {
+                                setUrl(e.target.value)
+                                setValidated(false)
+                            }}
                             autoFocus
                             required
+                            isValid={
+                                validated &&
+                                isValidUrl(url) &&
+                                url.trim() !== ""
+                            }
+                            isInvalid={
+                                validated &&
+                                (url.trim() === "" || !isValidUrl(url))
+                            }
                         />
+
+                        <Form.Control.Feedback type="invalid">
+                            Informe uma URL válida com http:// ou https://.
+                        </Form.Control.Feedback>
                     </Col>
                 </Form.Group>
 
@@ -114,21 +130,31 @@ export default function CreateLink() {
                         type="switch"
                         label="Personalizar"
                         checked={useCode}
-                        onChange={() => setUseCode(!useCode)}
+                        onChange={() => {
+                            setUseCode(!useCode)
+                            setValidated(false)
+                        }}
                     />
 
                     <Form.Check
                         type="switch"
                         label="Protegido"
                         checked={protectedLink}
-                        onChange={() => setProtectedLink(!protectedLink)}
+                        onChange={() => {
+                            setProtectedLink(!protectedLink)
+                            setValidated(false)
+                        }}
                     />
 
                     <Form.Check
                         type="switch"
                         label="QR Code"
                         checked={useQr}
-                        onChange={() => setUseQr(!useQr)}
+                        onChange={() => {
+                            setUseQr(!useQr)
+                            setShowQrOptions(!useQr)
+                            setValidated(false)
+                        }}
                     />
                 </div>
 
@@ -138,9 +164,18 @@ export default function CreateLink() {
                             type="text"
                             placeholder="Código customizado"
                             value={code}
-                            onChange={(e) => setCode(e.target.value)}
+                            onChange={(e) => {
+                                setCode(e.target.value)
+                                setValidated(false)
+                            }}
                             required
+                            isInvalid={validated && !isValidCode(code)}
+                            isValid={validated && isValidCode(code)}
                         />
+                        <Form.Control.Feedback type="invalid">
+                            O código deve ter entre 6 e 20 caracteres e conter
+                            apenas letras, números, '_' ou '-'.
+                        </Form.Control.Feedback>
                     </Form.Group>
                 )}
 
@@ -150,13 +185,22 @@ export default function CreateLink() {
                             type="password"
                             placeholder="Senha do link"
                             value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            onChange={(e) => {
+                                setPassword(e.target.value)
+                                setValidated(false)
+                            }}
                             required
+                            isInvalid={validated && !isValidPassword(password)}
+                            isValid={validated && isValidPassword(password)}
                         />
+                        <Form.Control.Feedback type="invalid">
+                            Use 8-50 caracteres, com maiúsculas,
+                            minúsculas, número e símbolo.
+                        </Form.Control.Feedback>
                     </Form.Group>
                 )}
 
-                {useQr && (
+                {showQrOptions && (
                     <Row className="mb-3 w-50 mx-auto">
                         <Col sm={6}>
                             <Form.Label>Cor principal</Form.Label>
@@ -164,7 +208,10 @@ export default function CreateLink() {
                                 type="color"
                                 className="w-50 mx-auto"
                                 value={mainColor}
-                                onChange={(e) => setMainColor(e.target.value)}
+                                onChange={(e) => {
+                                    setMainColor(e.target.value)
+                                    setValidated(false)
+                                }}
                             />
                         </Col>
 
@@ -174,9 +221,10 @@ export default function CreateLink() {
                                 className="w-50 mx-auto"
                                 type="color"
                                 value={secondaryColor}
-                                onChange={(e) =>
+                                onChange={(e) => {
                                     setSecondaryColor(e.target.value)
-                                }
+                                    setValidated(false)
+                                }}
                             />
                         </Col>
                     </Row>
@@ -192,7 +240,12 @@ export default function CreateLink() {
                 </Button>
             </Form>
 
-            {result && <LinkResult link={result} />}
+            {/* TODO: Make this actually show up */}
+            {result?.error === "CODE_TAKEN" && <CodeTaken code={result.code} />}
+
+            {result && !result.error && (
+                <LinkResult link={result} useQr={useQr} />
+            )}
         </Container>
     )
 }

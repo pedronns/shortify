@@ -7,7 +7,6 @@ export async function CreateQrCode(str, main, secondary) {
     const url = `https://quickchart.io/qr?text=${encodeURIComponent(
         str
     )}&dark=${cleanedMain}&light=${cleanedSecondary}&format=base64`
-    console.log("QR Code URL:", url)
 
     const res = await fetch(url)
 

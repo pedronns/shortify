@@ -9,7 +9,6 @@ const { Link } = db
 const app = express()
 const port = 3003
 
-
 app.use(cors())
 app.use(json())
 
@@ -27,7 +26,7 @@ app.post("/random", async (req, res) => {
     }
 
     try {
-        const shortLink = await createShortLink(url, code, password)
+        const shortLink = await createShortLink(url, code, password, false)
         console.log(
             `Short link created: http://localhost:${port}/${shortLink.code}`
         )
@@ -43,30 +42,30 @@ app.post("/custom", async (req, res) => {
     const { url, code, password } = req.body
 
     if (!isValidUrl(url)) {
-        return res.status(400).json({ error: "Invalid URL" })
+        return res.status(400).json({ error: "INVALID_URL" })
     }
 
     if (!isValidCode(code)) {
-        return res.status(400).json({ error: "Invalid code format" })
+        return res.status(400).json({ error: "INVALID_CODE_FORMAT" })
     }
 
     if (password && !isValidPassword(password)) {
-        return res.status(400).json({ error: "Invalid password format" })
+        return res.status(400).json({ error: "INVALID_PASSWORD_FORMAT" })
     }
 
     try {
-        const shortLink = await createShortLink(url, code, password)
+        const shortLink = await createShortLink(url, code, password, true)
         console.log(
             `Short link created: http://localhost:${port}/${shortLink.code}`
         )
         res.status(201).json(shortLink)
     } catch (error) {
         if (error.message === "CODE_TAKEN") {
-            return res.status(409).json({ error: "Code already in use" })
+            return res.status(409).json({ error: "CODE_TAKEN" })
         }
 
         console.error(`Error creating short link: ${error}`)
-        res.status(500).json({ error: "Error creating short link" })
+        res.status(500).json({ error: "SERVER_ERROR" })
     }
 })
 
@@ -96,17 +95,21 @@ app.get("/:code", async (req, res) => {
 
 // checks if the link exists and if it's protected
 app.get("/info/:code", async (req, res) => {
-    const { code } = req.params;
-    const link = await Link.findOne({ where: { code } });
+    const { code } = req.params
 
-    if (!link) return res.status(404).json({ error: "NOT_FOUND" });
+    try {
+        const link = await Link.findOne({ where: { code } })
+        if (!link) return res.status(404).json({ error: "NOT_FOUND" })
 
-    return res.json({
-        exists: true,
-        protected: link.protected,
-        url: link.protected ? null : link.url,
-    });
-});
+        res.json({
+            protected: link.protected,
+            url: link.protected ? null : link.url,
+        })
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ error: "Server error" })
+    }
+})
 
 app.post("/:code/unlock", async (req, res) => {
     const { password } = req.body

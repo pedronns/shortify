@@ -1,17 +1,38 @@
 const { Link } = require("../models/index")
 const bcrypt = require("bcrypt")
 
-async function createShortLink(url, code, password) {
+const API = import.meta.env.VITE_API_URL
+
+async function createShortLink(url, code, password, custom) {
     let passwordHash = null
     let isProtected = false
+
+    if(url.includes(API)) {
+        throw new Error("RECURSIVE_LINK");
+    }
 
     if (password) {
         passwordHash = await bcrypt.hash(password, 10)
         isProtected = true
     }
 
-    const taken = await Link.findOne({ where: { code } })
-    if (taken) {
+    if (!custom) {
+        const urlTaken = await Link.findOne({
+            where: { url, custom: false, protected: false },
+        })
+
+        if (urlTaken) {
+            return {
+                url: urlTaken.url,
+                code: urlTaken.code,
+                protected: urlTaken.protected,
+            }
+        }
+    }
+
+    // if custom code, check if it's already taken
+    const codeTaken = await Link.findOne({ where: { code } })
+    if (codeTaken) {
         throw new Error("CODE_TAKEN")
     }
 

@@ -23,11 +23,16 @@ module.exports = (sequelize, DataTypes) => {
                 type: DataTypes.INTEGER,
                 defaultValue: 0,
             },
-             passwordHash: {
+            passwordHash: {
                 type: DataTypes.STRING(100),
                 allowNull: true,
             },
             protected: {
+                type: DataTypes.BOOLEAN,
+                allowNull: false,
+                defaultValue: false,
+            },
+            custom: {
                 type: DataTypes.BOOLEAN,
                 allowNull: false,
                 defaultValue: false,

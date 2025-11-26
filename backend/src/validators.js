@@ -1,6 +1,3 @@
-const db = require("../models")
-const { Link } = db
-
 function isValidUrl(str) {
     try {
         const { protocol } = new URL(str)

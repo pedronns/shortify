@@ -3,11 +3,10 @@ const API = import.meta.env.VITE_API_URL
 import { useEffect, useState } from "react"
 import { CreateQrCode } from "../api/qrCode"
 
-export default function LinkResult({ link }) {
+export default function LinkResult({ link, useQr }) {
     if (!link) return null
 
     const [qrCode, setQrCode] = useState(null)
-    console.log("Base64:", qrCode)
 
     const shortUrl = `${API}/${link.code}`
 
@@ -21,7 +20,6 @@ export default function LinkResult({ link }) {
                 )
 
                 setQrCode(base64)
-                console.log("B64:", base64)
             } catch (err) {
                 console.log("Erro QR:", err)
             }
@@ -32,7 +30,7 @@ export default function LinkResult({ link }) {
 
     function copy() {
         navigator.clipboard.writeText(shortUrl)
-        alert("Link copiado!")
+        toggleShowA()
     }
 
     return (
@@ -68,7 +66,7 @@ export default function LinkResult({ link }) {
                     </div>
                 )}
 
-                {qrCode && (
+                {useQr && (
                     <div className="text-center my-3">
                         <img
                             src={`data:image/png;base64,${qrCode}`}
